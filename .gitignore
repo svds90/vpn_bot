@@ -1,3 +1,4 @@
 .pomoyka/
 .venv/
 .env
+__pycache__
