@@ -1,14 +1,12 @@
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters.command import Command
-from dotenv import load_dotenv
 import asyncio
 import logging
-import os
-
-load_dotenv()
+from settings.config import *
 
 logging.basicConfig(level=logging.INFO)
-bot = Bot(token=os.getenv("BOT_TOKEN"))  # type: ignore
+
+bot = Bot(token=bot_token)  # type: ignore
 dp = Dispatcher()
 
 
