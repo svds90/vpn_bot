@@ -35,10 +35,8 @@ class OutlineServerInfo(OutlineBase):
         self.server_metric_status = server_info.get('metricsEnabled', False)
         self.server_created_time = server_info.get('createdTimestampsMs', 0)
         self.server_version = server_info.get('version', "")
-        self.server_port_for_new_keys = server_info.get(
-            'portForNewAccessKeys', 0)
-        self.server_hostname_for_keys = server_info.get(
-            'hostnameForAccessKeys', "")
+        self.server_port_for_new_keys = server_info.get('portForNewAccessKeys', 0)
+        self.server_hostname_for_keys = server_info.get('hostnameForAccessKeys', "")
 
 
 class OutlineServer(OutlineBase):
