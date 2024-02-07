@@ -29,6 +29,17 @@ class OutlineServerInfo(OutlineBase):
     server_port_for_new_keys: int
     server_hostname_for_keys: str
 
+    def __init__(self, server_info: dict):
+        self.server_name = server_info.get('name', 'Outline server')
+        self.server_id = server_info.get('serverId', "")
+        self.server_metric_status = server_info.get('metricsEnabled', False)
+        self.server_created_time = server_info.get('createdTimestampsMs', 0)
+        self.server_version = server_info.get('version', "")
+        self.server_port_for_new_keys = server_info.get(
+            'portForNewAccessKeys', 0)
+        self.server_hostname_for_keys = server_info.get(
+            'hostnameForAccessKeys', "")
+
 
 class OutlineServer(OutlineBase):
     """Class for interacting with the Outline server"""
