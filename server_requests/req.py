@@ -1,6 +1,7 @@
 import os
 import requests
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 
@@ -25,7 +26,7 @@ class OutlineServerInfo(OutlineBase):
         self.server_name: str = server_info.get('name', 'Outline server')
         self.server_id: str = server_info.get('serverId', "")
         self.server_metric_status: bool = server_info.get('metricsEnabled', False)
-        self.server_created_time: int = server_info.get('createdTimestampsMs', 0)
+        self.server_created_time: str = server_info.get('createdTimestampMs', "")
         self.server_version: str = server_info.get('version', "")
         self.server_port_for_new_keys: int = server_info.get('portForNewAccessKeys', 0)
         self.server_hostname_for_keys: str = server_info.get('hostnameForAccessKeys', "")
@@ -43,10 +44,18 @@ class OutlineServer(OutlineBase):
 
     def __fetch_server_info(self, outline_api_url):
         request = requests.get(f"{outline_api_url}/server", verify=False)
+        print(request.json())
         server_json = request.json()
-        server_json.update({"server_key": outline_api_url})
+        server_json = {**server_json, 'server_key': outline_api_url,
+                       'createdTimestampMs': self.__timestamp_to_date(server_json['createdTimestampMs'])}
 
         return server_json
+
+    def __timestamp_to_date(self, timestamp: int) -> str:
+        date_time = datetime.fromtimestamp(timestamp / 1000)
+        date_time = date_time.strftime("%Y-%m-%d %H:%M:%S")
+
+        return date_time
 
 
 client = os.getenv("VPN_API_URL")
