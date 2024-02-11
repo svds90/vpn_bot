@@ -2,7 +2,7 @@ import os
 import requests
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Dict, Optional
 
 
 class OutlineServerError(Exception):
@@ -32,6 +32,7 @@ class OutlineServerInfo(OutlineBase):
         self.server_metric_status: bool = server_info.get('metricsEnabled', False)
         self.server_created_time: str = server_info.get('createdTimestampMs', "")
         self.server_version: str = server_info.get('version', "")
+        self.server_data_limit: Optional[dict] = server_info.get('accessKeyDataLimit', None)
         self.server_port_for_new_keys: int = server_info.get('portForNewAccessKeys', 0)
         self.server_hostname_for_keys: str = server_info.get('hostnameForAccessKeys', "")
 
@@ -64,8 +65,38 @@ class OutlineServer(OutlineBase):
         return date_time
 
     def change_hostname(self, new_hostname: str) -> None:
+        requests.put(f"{self.outline_api_url}/server/hostname-for-access-keys",
+                     json={"hostname": new_hostname}, verify=False)
         self.server_info.server_hostname_for_keys = new_hostname
 
     def rename_server(self, new_name: str) -> None:
-        requests.put(f"{self.server_info.server_key}/name", {"name": new_name}, verify=False)
+        requests.put(f"{self.outline_api_url}/name", json={"name": new_name}, verify=False)
         self.server_info.server_name = new_name
+
+    def get_metrics_status(self):
+        r = requests.get(f"{self.outline_api_url}/metrics/enabled", verify=False)
+
+        return r.json()['metricsEnabled']
+
+    def change_metrics_status(self, status: bool):
+        requests.put(f"{self.outline_api_url}/metrics/enabled",
+                     json={"metricsEnabled": status}, verify=False)
+        self.server_info.server_metric_status = status
+
+    def change_default_port(self, port: int):
+        requests.put(f"{self.outline_api_url}/server/port-for-new-access-keys",
+                     json={"port": port}, verify=False)
+        self.server_info.server_port_for_new_keys = port
+
+    def set_global_data_limit(self, limit: int):
+        requests.put(f"{self.outline_api_url}/server/access-key-data-limit",
+                     json={"limit": {"bytes": limit}}, verify=False)
+        self.server_info.server_data_limit = {"limit": {"bytes": limit}}
+
+    def disable_global_data_limit(self):
+        requests.delete(f"{self.outline_api_url}/server/access-key-data-limit", verify=False)
+        self.server_info.server_data_limit = None
+
+
+class OutlineClientInfo(OutlineBase):
+    pass
