@@ -38,13 +38,16 @@ class OutlineServerInfo(OutlineBase):
 
 
 class OutlineServer(OutlineBase):
-    """Class for interacting with the Outline server"""
+    """
+    Class for interacting with the Outline server
+    """
 
     def __init__(self, outline_api_url: str):
         self.outline_api_url = outline_api_url
         self.server_info = OutlineServerInfo(self.__fetch_server_info(outline_api_url))
 
-    def __call__(self) -> str:
+    def __call__(self, method, *args, **kwargs):
+
         return self.outline_api_url
 
     def __fetch_server_info(self, outline_api_url):
@@ -65,35 +68,64 @@ class OutlineServer(OutlineBase):
         return date_time
 
     def change_hostname(self, new_hostname: str) -> None:
+        """
+        Changes the hostname for access keys. Must be a valid hostname or IP address.
+        If it's a hostname, DNS must be set up independently of this API.
+        """
+
         requests.put(f"{self.outline_api_url}/server/hostname-for-access-keys",
                      json={"hostname": new_hostname}, verify=False)
         self.server_info.server_hostname_for_keys = new_hostname
 
     def rename_server(self, new_name: str) -> None:
+        """
+        Renames the server
+        """
+
         requests.put(f"{self.outline_api_url}/name", json={"name": new_name}, verify=False)
         self.server_info.server_name = new_name
 
-    def get_metrics_status(self):
-        r = requests.get(f"{self.outline_api_url}/metrics/enabled", verify=False)
+    def get_telemetry_status(self):
+        """
+        Returns whether metrics is being shared
+        """
 
+        r = requests.get(f"{self.outline_api_url}/metrics/enabled", verify=False)
         return r.json()['metricsEnabled']
 
-    def change_metrics_status(self, status: bool):
+    def change_telemetry_status(self, status: bool):
+        """
+        Enables or disables sharing of metrics
+        """
+
         requests.put(f"{self.outline_api_url}/metrics/enabled",
                      json={"metricsEnabled": status}, verify=False)
         self.server_info.server_metric_status = status
 
     def change_default_port(self, port: int):
+        """
+        Changes the default port for newly created access keys.
+        This can be a port already used for access keys.
+        """
+
         requests.put(f"{self.outline_api_url}/server/port-for-new-access-keys",
                      json={"port": port}, verify=False)
         self.server_info.server_port_for_new_keys = port
 
     def set_global_data_limit(self, limit: int):
+        """
+        Sets a data transfer limit for all access keys
+        """
+
         requests.put(f"{self.outline_api_url}/server/access-key-data-limit",
                      json={"limit": {"bytes": limit}}, verify=False)
         self.server_info.server_data_limit = {"limit": {"bytes": limit}}
 
     def disable_global_data_limit(self):
+        """
+        Removes the access key data limit, lifting data transfer restrictions on all access keys.
+        """
+
         requests.delete(f"{self.outline_api_url}/server/access-key-data-limit", verify=False)
         self.server_info.server_data_limit = None
 
