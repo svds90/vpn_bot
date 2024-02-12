@@ -1,6 +1,6 @@
 import os
 import requests
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -20,7 +20,7 @@ class OutlineBase:
         return cls._instances[cls]
 
     def __call__(self, *args: Any, **kwds: Any) -> Any:
-        return self
+        return self.__dict__
 
 
 class OutlineServerInfo(OutlineBase):
@@ -45,10 +45,17 @@ class OutlineServer(OutlineBase):
     def __init__(self, outline_api_url: str):
         self.outline_api_url = outline_api_url
         self.server_info = OutlineServerInfo(self.__fetch_server_info(outline_api_url))
+        self.client = OutlineClient(self.outline_api_url)
 
-    def __call__(self, method, *args, **kwargs):
+    def __call__(self, *args, **kwargs):
 
         return self.outline_api_url
+
+    def __getattr__(self, attr):
+        try:
+            return getattr(self.client, attr)
+        except KeyError:
+            raise AttributeError(attr)
 
     def __fetch_server_info(self, outline_api_url):
 
@@ -131,4 +138,31 @@ class OutlineServer(OutlineBase):
 
 
 class OutlineClientInfo(OutlineBase):
-    pass
+
+    def __init__(self, user_info={}):
+        self.user_id: Optional[str] = user_info.get('id', None)
+        self.user_name: str = user_info.get('name', "")
+        self.user_password: str = user_info.get('password', "")
+        self.user_port: int = user_info.get('port', 0)
+        self.user_method: str = user_info.get('method', "")
+        self.user_access_url: str = user_info.get('accessUrl', "")
+        self.user_data_limit: Optional[dict] = user_info.get('limit', None)
+
+
+class OutlineClient(OutlineBase):
+
+    def __init__(self, outline_api_url: str):
+        self.outline_api_url = outline_api_url
+
+    def __load_user_info(self, id: str):
+        r = requests.get(f"{self.outline_api_url}/access-keys/{id}", verify=False)
+        self.user_info = OutlineClientInfo(r.json())
+
+    def get_key(self, id: str):
+        self.__load_user_info(id)
+
+    def test(self):
+        pass
+
+
+outline = OutlineServer("https://192.168.238.17:28063/usBOG_wsviMFPuTOyT9F7A")
