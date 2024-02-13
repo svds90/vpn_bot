@@ -47,15 +47,13 @@ class OutlineServer(OutlineBase):
         self.server_info = OutlineServerInfo(self.__fetch_server_info(outline_api_url))
         self.client = OutlineClient(self.outline_api_url)
 
+        for method_name in dir(OutlineClient):
+            method = getattr(OutlineClient, method_name)
+            if callable(method) and not method_name.startswith("__"):
+                setattr(self, method_name, getattr(self.client, method_name))
+
     def __call__(self, *args, **kwargs):
-
         return self.outline_api_url
-
-    def __getattr__(self, attr):
-        try:
-            return getattr(self.client, attr)
-        except KeyError:
-            raise AttributeError(attr)
 
     def __fetch_server_info(self, outline_api_url):
 
@@ -162,7 +160,9 @@ class OutlineClient(OutlineBase):
         self.__load_user_info(id)
 
     def test(self):
-        pass
+        self.outline_api_url = self.user_info
+        self.__load_user_info() = self.__load_user_info()
+        self.outline_api_url = self.__load_user_info()
 
 
-outline = OutlineServer("https://192.168.238.17:28063/usBOG_wsviMFPuTOyT9F7A")
+outline = OutlineServer("https://192.168.67.17:28063/usBOG_wsviMFPuTOyT9F7A")
