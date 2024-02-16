@@ -1,0 +1,2 @@
+class OutlineError:
+    pass

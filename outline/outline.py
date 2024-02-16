@@ -5,8 +5,45 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 
 
-class OutlineServerError(Exception):
-    pass
+class OutlineError(Exception):
+    errors = {}
+
+    def __init__(self, status_code):
+        self.status_code = status_code
+
+    def __str__(self):
+        return f"{self.errors[self.status_code]}"
+
+
+class OutlineTelemetryError(OutlineError):
+    errors = {
+        400: "Invalid request",
+        500: "Failed",
+        404: "Page not found"
+    }
+
+
+class OutlineInvalidName(OutlineError):
+    errors = {
+        400: "Invalid name",
+        204: "OK"
+    }
+
+
+class OutlineInvalidHostname(OutlineError):
+
+    def __str__(self):
+        if self.status_code == 400:
+            return (
+                f"An invalid hostname or IP address was provided. "
+                f"Status code {self.status_code}"
+            )
+        elif self.status_code == 500:
+            return (
+                f"An internal error occurred. "
+                f"This could be thrown if there were network errors while validating the hostname. "
+                f"Status code {self.status_code}"
+            )
 
 
 class OutlineBase:
@@ -40,6 +77,22 @@ class OutlineServerInfo(OutlineBase):
         return self.__dict__
 
 
+class OutlineClientInfo(OutlineBase):
+
+    def __init__(self, user_info={}):
+        print("init OutlineClientInfo")
+        self.id: Optional[str] = user_info.get('id', None)
+        self.name: str = user_info.get('name', "")
+        self.password: str = user_info.get('password', "")
+        self.port: int = user_info.get('port', 0)
+        self.method: str = user_info.get('method', "")
+        self.access_url: str = user_info.get('accessUrl', "")
+        self.data_limit: Optional[dict] = user_info.get('dataLimit', None)
+
+    def __call__(self):
+        return self.__dict__
+
+
 class OutlineServer(OutlineBase):
     """
     Class for interacting with the Outline server
@@ -63,8 +116,12 @@ class OutlineServer(OutlineBase):
         If it's a hostname, DNS must be set up independently of this API.
         """
 
-        requests.put(f"{self.outline_api_url}/server/hostname-for-access-keys",
-                     json={"hostname": new_hostname}, verify=False)
+        r = requests.put(f"{self.outline_api_url}/server/hostname-for-access-keys",
+                         json={"hostname": new_hostname}, verify=False)
+
+        if r.status_code != 204:
+            raise OutlineInvalidHostname(r.status_code)
+
         self.server_info.hostname_for_keys = new_hostname
 
     def rename_server(self, new_name: str) -> None:
@@ -72,7 +129,11 @@ class OutlineServer(OutlineBase):
         Renames the server
         """
 
-        requests.put(f"{self.outline_api_url}/name", json={"name": new_name}, verify=False)
+        r = requests.put(f"{self.outline_api_url}/name", json={"name": new_name}, verify=False)
+
+        if r.status_code == 204:
+            raise OutlineInvalidName(r.status_code)
+
         self.server_info.name = new_name
 
     def get_telemetry_status(self):
@@ -81,6 +142,10 @@ class OutlineServer(OutlineBase):
         """
 
         r = requests.get(f"{self.outline_api_url}/metrics/enabled", verify=False)
+
+        if r.status_code != 200:
+            raise OutlineTelemetryError(r.status_code)
+
         return r.json()['metricsEnabled']
 
     def change_telemetry_status(self, status: bool):
@@ -98,9 +163,10 @@ class OutlineServer(OutlineBase):
         This can be a port already used for access keys.
         """
 
-        requests.put(f"{self.outline_api_url}/server/port-for-new-access-keys",
-                     json={"port": port}, verify=False)
-        self.server_info.port_for_new_keys = port
+        r = requests.put(f"{self.outline_api_url}/server/port-for-new-access-keys",
+                         json={"port": port}, verify=False)
+        if r.status_code == 204:
+            self.server_info.port_for_new_keys = port
 
     def set_global_data_limit(self, limit: int):
         """
@@ -118,22 +184,6 @@ class OutlineServer(OutlineBase):
 
         requests.delete(f"{self.outline_api_url}/server/access-key-data-limit", verify=False)
         self.server_info.data_limit = None
-
-
-class OutlineClientInfo(OutlineBase):
-
-    def __init__(self, user_info={}):
-        print("init OutlineClientInfo")
-        self.id: Optional[str] = user_info.get('id', None)
-        self.name: str = user_info.get('name', "")
-        self.password: str = user_info.get('password', "")
-        self.port: int = user_info.get('port', 0)
-        self.method: str = user_info.get('method', "")
-        self.access_url: str = user_info.get('accessUrl', "")
-        self.data_limit: Optional[dict] = user_info.get('limit', None)
-
-    def __call__(self):
-        return self.__dict__
 
 
 class OutlineClient(OutlineBase):
