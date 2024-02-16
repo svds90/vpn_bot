@@ -49,26 +49,15 @@ class OutlineServer(OutlineBase):
         print("init OutlineServer")
         self.outline_api_url = outline_api_url
         self.server_info = OutlineServerInfo(self.__fetch_server_info(outline_api_url))
-        OutlineClient(self.outline_api_url)
 
     def __fetch_server_info(self, outline_api_url):
 
         request = requests.get(f"{outline_api_url}/server", verify=False, timeout=2)
-        server_json = {
-            **request.json(),
-            'server_key': outline_api_url,
-            'createdTimestampMs': self.__timestamp_to_date(request.json()['createdTimestampMs'])
-        }
+        server_json = {**request.json(), 'server_key': outline_api_url}
 
         return server_json
 
-    def __timestamp_to_date(self, timestamp: int) -> str:
-        date_time = datetime.fromtimestamp(timestamp / 1000)
-        date_time = date_time.strftime("%d/%m/%y %H:%M:%S")
-
-        return date_time
-
-    def server_change_hostname(self, new_hostname: str) -> None:
+    def change_hostname(self, new_hostname: str) -> None:
         """
         Changes the hostname for access keys. Must be a valid hostname or IP address.
         If it's a hostname, DNS must be set up independently of this API.
@@ -78,7 +67,7 @@ class OutlineServer(OutlineBase):
                      json={"hostname": new_hostname}, verify=False)
         self.server_info.hostname_for_keys = new_hostname
 
-    def server_rename(self, new_name: str) -> None:
+    def rename_server(self, new_name: str) -> None:
         """
         Renames the server
         """
@@ -86,7 +75,7 @@ class OutlineServer(OutlineBase):
         requests.put(f"{self.outline_api_url}/name", json={"name": new_name}, verify=False)
         self.server_info.name = new_name
 
-    def server_get_telemetry_status(self):
+    def get_telemetry_status(self):
         """
         Returns whether metrics is being shared
         """
@@ -94,7 +83,7 @@ class OutlineServer(OutlineBase):
         r = requests.get(f"{self.outline_api_url}/metrics/enabled", verify=False)
         return r.json()['metricsEnabled']
 
-    def server_change_telemetry_status(self, status: bool):
+    def change_telemetry_status(self, status: bool):
         """
         Enables or disables sharing of metrics
         """
@@ -103,7 +92,7 @@ class OutlineServer(OutlineBase):
                      json={"metricsEnabled": status}, verify=False)
         self.server_info.metric_status = status
 
-    def server_change_default_port(self, port: int):
+    def change_default_port(self, port: int):
         """
         Changes the default port for newly created access keys.
         This can be a port already used for access keys.
@@ -113,7 +102,7 @@ class OutlineServer(OutlineBase):
                      json={"port": port}, verify=False)
         self.server_info.port_for_new_keys = port
 
-    def server_set_global_data_limit(self, limit: int):
+    def set_global_data_limit(self, limit: int):
         """
         Sets a data transfer limit for all access keys
         """
@@ -122,7 +111,7 @@ class OutlineServer(OutlineBase):
                      json={"limit": {"bytes": limit}}, verify=False)
         self.server_info.data_limit = {"limit": {"bytes": limit}}
 
-    def server_disable_global_data_limit(self):
+    def disable_global_data_limit(self):
         """
         Removes the access key data limit, lifting data transfer restrictions on all access keys.
         """
@@ -135,13 +124,13 @@ class OutlineClientInfo(OutlineBase):
 
     def __init__(self, user_info={}):
         print("init OutlineClientInfo")
-        self.user_id: Optional[str] = user_info.get('id', None)
-        self.user_name: str = user_info.get('name', "")
-        self.user_password: str = user_info.get('password', "")
-        self.user_port: int = user_info.get('port', 0)
-        self.user_method: str = user_info.get('method', "")
-        self.user_access_url: str = user_info.get('accessUrl', "")
-        self.user_data_limit: Optional[dict] = user_info.get('limit', None)
+        self.id: Optional[str] = user_info.get('id', None)
+        self.name: str = user_info.get('name', "")
+        self.password: str = user_info.get('password', "")
+        self.port: int = user_info.get('port', 0)
+        self.method: str = user_info.get('method', "")
+        self.access_url: str = user_info.get('accessUrl', "")
+        self.data_limit: Optional[dict] = user_info.get('limit', None)
 
     def __call__(self):
         return self.__dict__
@@ -152,18 +141,72 @@ class OutlineClient(OutlineBase):
     def __init__(self, outline_api_url: str):
         print("init OutlineClient")
         self.outline_api_url = outline_api_url
+        self.client_info = OutlineClientInfo()
 
-    def __load_user_info(self, id: str):
+    def get_all_keys(self):
+        """
+        Lists the access keys
+        """
+
+        r = requests.get(f"{self.outline_api_url}/access-keys", verify=False)
+        return r.json()
+
+    def get_key(self, id: str):
+        """
+        Get an access key
+        """
+
         r = requests.get(f"{self.outline_api_url}/access-keys/{id}", verify=False)
         self.client_info = OutlineClientInfo(r.json())
 
-    def user_get_info(self, id: str):
-        self.__load_user_info(id)
+    def get_all_metrics(self):
+        """
+        Returns the data transferred per access key
+        """
 
-    def user_test(self):
-        pass
+        r = requests.get(f"{self.outline_api_url}/metrics/transfer", verify=False)
+        return r.json()
+
+    def create_new_key(self):
+        """
+        Creates a new access key
+        """
+
+        requests.post(f"{self.outline_api_url}/access-keys",
+                      json={"method": "chacha20-ietf-poly1305"}, verify=False)
+
+    def delete_key(self, id: str):
+        """
+        Deletes an access key
+        """
+
+        requests.delete(f"{self.outline_api_url}/access-keys/{id}", verify=False)
+
+    def rename_key(self, id: str, name: str):
+        """
+        Renames an access key
+        """
+
+        requests.put(f"{self.outline_api_url}/access-keys/{id}/name",
+                     json={"name": str(name)}, verify=False)
+
+    def set_data_limit(self, id: str, data_limit: int):
+        """
+        Sets a data limit for the given access key
+        """
+
+        requests.put(f"{self.outline_api_url}/access-keys/{id}/data-limit",
+                     json={"limit": {"bytes": data_limit}}, verify=False)
+
+    def disable_data_limit(self, id: str):
+        """
+        Removes the data limit on the given access key.
+        """
+
+        requests.delete(f"{self.outline_api_url}/access-keys/{id}/data-limit", verify=False)
 
 
-class OutlineC(OutlineServer, OutlineClient):
+class Outline(OutlineBase):
     def __init__(self, outline_api_url):
-        super().__init__(outline_api_url)
+        self.server = OutlineServer(outline_api_url)
+        self.client = OutlineClient(outline_api_url)
