@@ -3,47 +3,7 @@ import requests
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Optional
-
-
-class OutlineError(Exception):
-    errors = {}
-
-    def __init__(self, status_code):
-        self.status_code = status_code
-
-    def __str__(self):
-        return f"{self.errors[self.status_code]}"
-
-
-class OutlineTelemetryError(OutlineError):
-    errors = {
-        400: "Invalid request",
-        500: "Failed",
-        404: "Page not found"
-    }
-
-
-class OutlineInvalidName(OutlineError):
-    errors = {
-        400: "Invalid name",
-        204: "OK"
-    }
-
-
-class OutlineInvalidHostname(OutlineError):
-
-    def __str__(self):
-        if self.status_code == 400:
-            return (
-                f"An invalid hostname or IP address was provided. "
-                f"Status code {self.status_code}"
-            )
-        elif self.status_code == 500:
-            return (
-                f"An internal error occurred. "
-                f"This could be thrown if there were network errors while validating the hostname. "
-                f"Status code {self.status_code}"
-            )
+from exceptions import *
 
 
 class OutlineBase:
@@ -131,7 +91,7 @@ class OutlineServer(OutlineBase):
 
         r = requests.put(f"{self.outline_api_url}/name", json={"name": new_name}, verify=False)
 
-        if r.status_code == 204:
+        if r.status_code != 204:
             raise OutlineInvalidName(r.status_code)
 
         self.server_info.name = new_name
@@ -165,16 +125,23 @@ class OutlineServer(OutlineBase):
 
         r = requests.put(f"{self.outline_api_url}/server/port-for-new-access-keys",
                          json={"port": port}, verify=False)
-        if r.status_code == 204:
-            self.server_info.port_for_new_keys = port
+
+        if r.status_code != 204:
+            raise OutlinePortError(r.status_code)
+
+        self.server_info.port_for_new_keys = port
 
     def set_global_data_limit(self, limit: int):
         """
         Sets a data transfer limit for all access keys
         """
 
-        requests.put(f"{self.outline_api_url}/server/access-key-data-limit",
-                     json={"limit": {"bytes": limit}}, verify=False)
+        r = requests.put(f"{self.outline_api_url}/server/access-key-data-limit",
+                         json={"limit": {"bytes": limit}}, verify=False)
+
+        if r.status_code != 204:
+            raise OutlineInvalidDataLimit(r.status_code)
+
         self.server_info.data_limit = {"limit": {"bytes": limit}}
 
     def disable_global_data_limit(self):
@@ -207,6 +174,10 @@ class OutlineClient(OutlineBase):
         """
 
         r = requests.get(f"{self.outline_api_url}/access-keys/{id}", verify=False)
+
+        if r.status_code != 200:
+            raise OutlineInvalidAccessKey(r.status_code)
+
         self.client_info = OutlineClientInfo(r.json())
 
     def get_all_metrics(self):
@@ -230,30 +201,44 @@ class OutlineClient(OutlineBase):
         Deletes an access key
         """
 
-        requests.delete(f"{self.outline_api_url}/access-keys/{id}", verify=False)
+        r = requests.delete(f"{self.outline_api_url}/access-keys/{id}", verify=False)
+
+        if r.status_code != 204:
+            raise OutlineInvalidAccessKey(r.status_code)
+
+        self.client_info = OutlineClientInfo()
 
     def rename_key(self, id: str, name: str):
         """
         Renames an access key
         """
 
-        requests.put(f"{self.outline_api_url}/access-keys/{id}/name",
-                     json={"name": str(name)}, verify=False)
+        r = requests.put(f"{self.outline_api_url}/access-keys/{id}/name",
+                         json={"name": str(name)}, verify=False)
+
+        if r.status_code != 204:
+            raise OutlineInvalidAccessKey(r.status_code)
 
     def set_data_limit(self, id: str, data_limit: int):
         """
         Sets a data limit for the given access key
         """
 
-        requests.put(f"{self.outline_api_url}/access-keys/{id}/data-limit",
-                     json={"limit": {"bytes": data_limit}}, verify=False)
+        r = requests.put(f"{self.outline_api_url}/access-keys/{id}/data-limit",
+                         json={"limit": {"bytes": data_limit}}, verify=False)
+
+        if r.status_code != 204:
+            raise OutlineInvalidDataLimit(r.status_code)
 
     def disable_data_limit(self, id: str):
         """
         Removes the data limit on the given access key.
         """
 
-        requests.delete(f"{self.outline_api_url}/access-keys/{id}/data-limit", verify=False)
+        r = requests.delete(f"{self.outline_api_url}/access-keys/{id}/data-limit", verify=False)
+
+        if r.status_code != 204:
+            raise OutlineInvalidDataLimit(r.status_code)
 
 
 class Outline(OutlineBase):
