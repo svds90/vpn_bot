@@ -1,7 +1,4 @@
-import os
 import requests
-from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Any, Dict, Optional
 from exceptions import *
 
@@ -67,7 +64,6 @@ class OutlineServer(OutlineBase):
 
         request = requests.get(f"{outline_api_url}/server", verify=False, timeout=2)
         server_json = {**request.json(), 'server_key': outline_api_url}
-
         return server_json
 
     def change_hostname(self, new_hostname: str) -> None:
@@ -102,10 +98,6 @@ class OutlineServer(OutlineBase):
         """
 
         r = requests.get(f"{self.outline_api_url}/metrics/enabled", verify=False)
-
-        if r.status_code != 200:
-            raise OutlineTelemetryError(r.status_code)
-
         return r.json()['metricsEnabled']
 
     def change_telemetry_status(self, status: bool):
@@ -113,8 +105,12 @@ class OutlineServer(OutlineBase):
         Enables or disables sharing of metrics
         """
 
-        requests.put(f"{self.outline_api_url}/metrics/enabled",
-                     json={"metricsEnabled": status}, verify=False)
+        r = requests.put(f"{self.outline_api_url}/metrics/enabled",
+                         json={"metricsEnabled": status}, verify=False)
+
+        if r.status_code != 204:
+            raise OutlineTelemetryError(r.status_code)
+
         self.server_info.metric_status = status
 
     def change_default_port(self, port: int):
@@ -188,7 +184,7 @@ class OutlineClient(OutlineBase):
         r = requests.get(f"{self.outline_api_url}/metrics/transfer", verify=False)
         return r.json()
 
-    def create_new_key(self):
+    def create_key(self):
         """
         Creates a new access key
         """
